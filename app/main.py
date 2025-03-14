@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from database import get_connection
+from .database import get_connection
 import logging
 
 # Configure logging
