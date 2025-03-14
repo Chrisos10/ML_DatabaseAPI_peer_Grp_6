@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from .database import get_connection
+from database import get_connection
 import logging
 
 # Configure logging
@@ -51,10 +51,15 @@ def read_patient(patient_id: str):
     try:
         cursor.execute("SELECT * FROM Patients WHERE id = %s", (patient_id,))
         patient = cursor.fetchone()
-        if patient:
-            return patient
-        logging.warning(f"Patient with ID {patient_id} not found")
-        raise HTTPException(status_code=404, detail="Patient not found")
+        
+        if not patient:
+            logging.warning(f"Patient with ID {patient_id} not found")
+            raise HTTPException(status_code=404, detail="Patient not found")
+
+        return patient
+    except Exception as e:
+        logging.error(f"Error fetching patient: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
     finally:
         cursor.close()
         conn.close()
@@ -71,10 +76,16 @@ def update_patient(patient_id: str, patient: Patient):
     try:
         cursor.execute("UPDATE Patients SET diagnosis = %s WHERE id = %s", (patient.diagnosis, patient_id))
         conn.commit()
+        
         if cursor.rowcount == 0:
             logging.warning(f"Patient with ID {patient_id} not found")
             raise HTTPException(status_code=404, detail="Patient not found")
+        
         return {"message": "Patient updated successfully"}
+    except Exception as e:
+        conn.rollback()
+        logging.error(f"Error updating patient: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
     finally:
         cursor.close()
         conn.close()
@@ -91,10 +102,16 @@ def delete_patient(patient_id: str):
     try:
         cursor.execute("DELETE FROM Patients WHERE id = %s", (patient_id,))
         conn.commit()
+        
         if cursor.rowcount == 0:
             logging.warning(f"Patient with ID {patient_id} not found")
             raise HTTPException(status_code=404, detail="Patient not found")
+        
         return {"message": "Patient deleted successfully"}
+    except Exception as e:
+        conn.rollback()
+        logging.error(f"Error deleting patient: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
     finally:
         cursor.close()
         conn.close()
